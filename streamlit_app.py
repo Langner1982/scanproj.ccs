@@ -1,4 +1,6 @@
 import streamlit as st
+from openai import OpenAI
+import PyPDF2
 
 st.set_page_config(page_title="ScanProj CCS", layout="wide")
 
@@ -7,53 +9,56 @@ st.subheader("Análise Inteligente de Projetos")
 
 st.write("Envie os documentos do projeto para gerar uma análise técnica preliminar.")
 
+client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
+
 st.divider()
 
-# Uploads
 st.header("📂 Upload de documentos")
 
 cadastro = st.file_uploader("PDF do cadastro do projeto", type=["pdf"])
 tramitacao = st.file_uploader("PDF da tramitação", type=["pdf"])
-anexos = st.file_uploader("Anexos (opcional)", accept_multiple_files=True)
 
 st.divider()
 
-# Tipo de análise
-st.header("⚙️ Tipo de análise")
+def ler_pdf(arquivo):
+    texto = ""
+    reader = PyPDF2.PdfReader(arquivo)
+    for page in reader.pages:
+        texto += page.extract_text() or ""
+    return texto
 
-modo = st.selectbox(
-    "Selecione o tipo de análise",
-    [
-        "Análise completa",
-        "Despacho curto",
-        "Foco em inovação",
-        "Foco em pendências"
-    ]
-)
-
-st.divider()
-
-# Botão
 if st.button("🚀 Gerar análise"):
-    st.subheader("📊 Resultado da análise")
 
-    st.markdown("""
-    ### 1. Classificação
-    Projeto aparentemente classificado como pesquisa aplicada.
+    if cadastro is None:
+        st.warning("Envie o PDF do cadastro")
+    else:
+        with st.spinner("Analisando..."):
 
-    ### 2. Pontos de atenção
-    - Verificar coerência entre objetivo e metodologia
-    - Conferir plano de trabalho
+            texto = ler_pdf(cadastro)
 
-    ### 3. Pendências
-    - Ausência de detalhamento no plano de trabalho
+            prompt = f"""
+            Você é um analista técnico de projetos do CCS/UFSM.
 
-    ### 4. Potencial de inovação
-    Médio (há indícios de aplicação prática)
+            Analise o projeto abaixo e gere:
 
-    ### 5. Encaminhamento
-    Recomenda-se solicitar complementação ao proponente.
+            1. Classificação
+            2. Pontos de atenção
+            3. Pendências
+            4. Potencial de inovação
+            5. Encaminhamento
+            6. Despacho sugerido
 
-    ### 6. Despacho sugerido
-    Após análise preliminar, sugere-se o retorno ao interessado para complementação do plano de trabalho, a fim de garantir maior clareza na execução do projeto, salvo melhor juízo.
-    """)
+            Texto:
+            {texto}
+            """
+
+            resposta = client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[
+                    {"role": "system", "content": "Você é um analista técnico institucional."},
+                    {"role": "user", "content": prompt}
+                ]
+            )
+
+            st.subheader("📊 Resultado")
+            st.write(resposta.choices[0].message.content)
