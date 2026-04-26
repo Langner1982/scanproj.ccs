@@ -17,7 +17,11 @@ st.header("📂 Upload de documentos")
 
 cadastro = st.file_uploader("PDF do cadastro do projeto", type=["pdf"])
 tramitacao = st.file_uploader("PDF da tramitação", type=["pdf"])
-
+anexos = st.file_uploader(
+    "Anexos gerais do projeto",
+    type=["pdf", "docx", "txt"],
+    accept_multiple_files=True
+)
 st.divider()
 
 def ler_pdf(arquivo):
